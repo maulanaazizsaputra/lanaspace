@@ -61,8 +61,9 @@ rx += (x - rx) * follow;
 ry += (y - ry) * follow;
 size += (target * press - size) * grow;
 ring.style.transform = `translate3d(${rx - RING / 2}px, ${ry - RING / 2}px, 0) scale(${size / RING})`;
-label.style.transform = `translate3d(${rx}px, ${ry}px, 0) translate(-50%, -50%)`;
-lens.style.transform = `translate3d(${rx - RING / 2}px, ${ry - RING / 2}px, 0)`;
+const state = layer.dataset.state;
+if (state === 'label') label.style.transform = `translate3d(${rx}px, ${ry}px, 0) translate(-50%, -50%)`;
+if (state === 'lens') lens.style.transform = `translate3d(${rx - RING / 2}px, ${ry - RING / 2}px, 0)`;
 const settled = Math.abs(x - rx) < 0.1 && Math.abs(y - ry) < 0.1 && Math.abs(target * press - size) < 0.1;
 if (settled) {
 raf = 0;
@@ -217,66 +218,58 @@ pic.loading = 'eager';
 els.filter((el) => el.querySelector('.pic-mask')).forEach((el) => loader.observe(el));
 })();
 (() => {
-const svgs = Array.from(document.querySelectorAll('.rings'));
-if (!svgs.length) return;
+const sets = Array.from(document.querySelectorAll('.rings'));
+if (!sets.length) return;
 if (!('IntersectionObserver' in window)) {
-svgs.forEach((svg) => svg.classList.add('is-drawn'));
+sets.forEach((el) => el.classList.add('is-drawn'));
 return;
 }
-const MAX = 9;
-const items = svgs.map((svg) => {
-const circles = Array.from(svg.querySelectorAll('circle'));
-return { svg, circles, ox: new Float32Array(circles.length), oy: new Float32Array(circles.length), on: false, drawn: false };
+const MAX = 8;
+const parallax = motionFull && finePointer;
+const items = sets.map((el) => {
+const layers = Array.from(el.querySelectorAll('.rings__layer'));
+const n = layers.length;
+if (parallax) el.classList.add('rings--parallax');
+return { el, layers, weight: layers.map((_, k) => Math.pow(1 - k / n, 1.7)), x: 0, y: 0, on: false, drawn: false };
 });
 let px = null;
 let py = null;
 let raf = 0;
-const step = (now) => {
+const step = () => {
 raf = 0;
 let busy = false;
 for (const it of items) {
-if (!it.on) continue;
-let nx;
-let ny;
-if (finePointer && px !== null) {
-const r = it.svg.getBoundingClientRect();
-nx = Math.max(-1, Math.min(1, (px - (r.left + r.width / 2)) / (window.innerWidth * 0.5)));
-ny = Math.max(-1, Math.min(1, (py - (r.top + r.height / 2)) / (window.innerHeight * 0.5)));
-} else {
-nx = Math.sin(now / 2600) * 0.6;
-ny = Math.cos(now / 3400) * 0.5;
-busy = true;
-}
-const n = it.circles.length;
-for (let i = 0; i < n; i++) {
-const w = Math.pow(1 - i / n, 1.7);
-const tx = nx * MAX * w;
-const ty = ny * MAX * w;
-it.ox[i] += (tx - it.ox[i]) * 0.08;
-it.oy[i] += (ty - it.oy[i]) * 0.08;
-if (Math.abs(tx - it.ox[i]) > 0.005 || Math.abs(ty - it.oy[i]) > 0.005) busy = true;
-it.circles[i].setAttribute('cx', it.ox[i].toFixed(2));
-it.circles[i].setAttribute('cy', it.oy[i].toFixed(2));
+if (!it.on || px === null) continue;
+const r = it.el.getBoundingClientRect();
+const tx = Math.max(-1, Math.min(1, (px - (r.left + r.width / 2)) / (window.innerWidth * 0.5)));
+const ty = Math.max(-1, Math.min(1, (py - (r.top + r.height / 2)) / (window.innerHeight * 0.5)));
+it.x += (tx - it.x) * 0.09;
+it.y += (ty - it.y) * 0.09;
+if (Math.abs(tx - it.x) > 0.0008 || Math.abs(ty - it.y) > 0.0008) busy = true;
+for (let k = 0; k < it.layers.length; k++) {
+const u = it.x * MAX * it.weight[k] * 0.5;
+const v = it.y * MAX * it.weight[k] * 0.5;
+it.layers[k].style.translate = `${u.toFixed(3)}% ${v.toFixed(3)}%`;
 }
 }
 if (busy && !document.hidden) raf = requestAnimationFrame(step);
 };
 const kick = () => {
-if (motionFull && !raf) raf = requestAnimationFrame(step);
+if (parallax && !raf) raf = requestAnimationFrame(step);
 };
 const io = new IntersectionObserver((entries) => {
 entries.forEach((entry) => {
-const it = items.find((item) => item.svg === entry.target);
+const it = items.find((item) => item.el === entry.target);
 it.on = entry.isIntersecting;
 if (it.on && !it.drawn) {
 it.drawn = true;
-it.svg.classList.add('is-drawn');
+it.el.classList.add('is-drawn');
 }
 });
 kick();
 });
-items.forEach((it) => io.observe(it.svg));
-if (finePointer) {
+items.forEach((it) => io.observe(it.el));
+if (parallax) {
 window.addEventListener(
 'pointermove',
 (e) => {
@@ -286,21 +279,20 @@ kick();
 },
 { passive: true },
 );
-}
 document.addEventListener('visibilitychange', kick);
-const ripple = (svg, clientX, clientY) => {
-const m = svg.getScreenCTM();
-if (!m) return;
-const pt = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
-const g = svg.querySelector('g');
+}
+const ripple = (el, clientX, clientY) => {
+const r = el.getBoundingClientRect();
+const scale = r.width / el.offsetWidth || 1;
+const x = (clientX - r.left) / scale;
+const y = (clientY - r.top) / scale;
 for (let k = 0; k < 3; k++) {
-const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-c.setAttribute('class', 'ripple');
-c.setAttribute('cx', pt.x.toFixed(2));
-c.setAttribute('cy', pt.y.toFixed(2));
-c.setAttribute('r', motionFull ? '42' : String(5 + k * 6));
-g.append(c);
-const anim = c.animate(
+const d = el.offsetWidth * (motionFull ? 0.42 : 0.05 + k * 0.06);
+const s = document.createElement('span');
+s.className = 'rings__ripple';
+s.style.cssText = `width:${d}px;height:${d}px;left:${x - d / 2}px;top:${y - d / 2}px`;
+el.append(s);
+const anim = s.animate(
 motionFull
 ? [
 { transform: 'scale(0.05)', opacity: 1 },
@@ -310,15 +302,15 @@ motionFull
 { duration: motionFull ? 1700 : 1100, delay: k * 170, easing: EASE_OUT, fill: 'backwards' },
 );
 anim.finished.then(
-() => c.remove(),
-() => c.remove(),
+() => s.remove(),
+() => s.remove(),
 );
 }
 };
 document.addEventListener('pointerdown', (e) => {
 const host = e.target.closest('.about-hero, .mabout');
-const svg = host && host.querySelector('.rings');
-if (svg) ripple(svg, e.clientX, e.clientY);
+const el = host && host.querySelector('.rings');
+if (el) ripple(el, e.clientX, e.clientY);
 });
 })();
 const clockFormat = (() => {
