@@ -1,0 +1,17 @@
+# lanaspace
+
+> Portofolio Maulana Aziz Saputra, desainer arsitektur dan interior. Proyek hunian, komersial, dan interior, dari konsep sampai gambar kerja yang siap dibangun.
+
+## Karya
+- [Pinakular House](https://maulanaazizsaputra.github.io/lanaspace/karya/pinakular-house/): Satu kisi bata terakota untuk privasi dan panas sore.
+- [TP House](https://maulanaazizsaputra.github.io/lanaspace/karya/tp-house/): Setiap sisi rumah menjawab matahari dan angin dengan caranya sendiri.
+- [Como House](https://maulanaazizsaputra.github.io/lanaspace/karya/como-house/): Rumah yang tumbuh satu lantai tanpa kehilangan cahaya dan udara.
+- [Taman Medyra](https://maulanaazizsaputra.github.io/lanaspace/karya/taman-medyra/): 44 rumah dan 1 ruko mengelilingi satu taman, yang terjauh sekitar 67 meter.
+- [Hong Hua Mandarin: Arsitektur](https://maulanaazizsaputra.github.io/lanaspace/karya/hong-hua-arsitektur/): Tiga fasad Hong Hua dengan bahasa desain yang sama: bidang merah dan logo bulat.
+- [Bank Mandiri Syariah](https://maulanaazizsaputra.github.io/lanaspace/karya/bank-mandiri-syariah/): Kantor yang tenang, terbuka, dan memberi kesan amanah sejak lobby.
+- [Hong Hua Mandarin: Interior](https://maulanaazizsaputra.github.io/lanaspace/karya/hong-hua-interior/): Karakter Hanzi menjadi elemen ruang, dinding kelas ikut jadi media belajar.
+- [Paragon](https://maulanaazizsaputra.github.io/lanaspace/karya/paragon/): Kontras gelap dan terang sebagai kejutan sekaligus penunjuk arah.
+
+## Lainnya
+- [Tentang](https://maulanaazizsaputra.github.io/lanaspace/tentang/): profil, pengalaman, pendidikan, dan keahlian.
+- [Gambar kerja & sketsa tangan](https://maulanaazizsaputra.github.io/lanaspace/lainnya/): Gambar kerja AutoCAD (denah, potongan, detail dinding, dan detail loker) serta sketsa tangan karya Maulana Aziz Saputra.
