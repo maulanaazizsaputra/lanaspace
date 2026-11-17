@@ -359,6 +359,137 @@ return;
 window.location.reload();
 });
 })();
+const visitors = { total: null, online: new Map(), offset: 0 };
+const visitorNumber = (() => {
+try {
+return new Intl.NumberFormat('id-ID');
+} catch (error) {
+return { format: String };
+}
+})();
+function updateVisitors() {
+if (visitors.total === null) return;
+const now = Date.now() + visitors.offset;
+let online = 0;
+visitors.online.forEach((ts) => {
+if (typeof ts === 'number' && now - ts < 75000) online += 1;
+});
+if (document.visibilityState === 'visible') online = Math.max(online, 1);
+const total = visitorNumber.format(Math.max(visitors.total, online));
+const onlineText = visitorNumber.format(online);
+document.querySelectorAll('[data-visitors]').forEach((el) => {
+const t = el.querySelector('[data-visitors-total]');
+const o = el.querySelector('[data-visitors-online]');
+if (motionFull && !el.hidden && t.textContent !== total) {
+t.classList.remove('is-bump');
+void t.offsetWidth;
+t.classList.add('is-bump');
+}
+t.textContent = total;
+o.textContent = onlineText;
+el.title = `${onlineText} orang sedang melihat situs ini, ${total} pengunjung sejak penghitung dipasang`;
+el.hidden = false;
+});
+}
+(() => {
+const meta = document.querySelector('meta[name="lana-visitors"]');
+if (!meta || !window.EventSource || !window.fetch) return;
+const url = (path) => `${meta.content}/${path}.json`;
+let id = null;
+try {
+id = localStorage.getItem('lana-id');
+if (!id || !/^[a-z0-9]{12,40}$/.test(id)) {
+id = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 24);
+localStorage.setItem('lana-id', id);
+}
+} catch (error) {
+id = null;
+}
+(async () => {
+try {
+if (localStorage.getItem('lana-dihitung')) return;
+const res = await fetch(url('live/total'), { method: 'PUT', body: JSON.stringify({ '.sv': { increment: 1 } }) });
+if (res.ok) localStorage.setItem('lana-dihitung', '1');
+} catch (error) {
+}
+})();
+async function beat() {
+if (!id || document.visibilityState !== 'visible') return;
+try {
+const res = await fetch(url(`live/online/${id}`), { method: 'PUT', body: JSON.stringify({ '.sv': 'timestamp' }) });
+if (!res.ok) return;
+const ts = await res.json();
+if (typeof ts === 'number') {
+visitors.offset = ts - Date.now();
+visitors.online.set(id, ts);
+}
+updateVisitors();
+} catch (error) {
+}
+}
+function tidy() {
+const now = Date.now() + visitors.offset;
+let n = 0;
+visitors.online.forEach((ts, key) => {
+if (n < 5 && typeof ts === 'number' && now - ts > 600000) {
+n += 1;
+fetch(url(`live/online/${key}`), { method: 'DELETE' }).catch(() => {});
+}
+});
+}
+function apply(type, path, data) {
+const parts = path.split('/').filter(Boolean);
+if (!parts.length) {
+if (type === 'put') {
+visitors.total = typeof data?.total === 'number' ? data.total : 0;
+visitors.online = new Map(Object.entries(data?.online || {}));
+tidy();
+} else if (data) {
+Object.entries(data).forEach(([k, v]) => apply('put', `/${k}`, v));
+}
+return;
+}
+if (parts[0] === 'total') {
+if (typeof data === 'number') visitors.total = data;
+} else if (parts[0] === 'online') {
+if (parts.length === 1) {
+if (type === 'put') visitors.online = new Map(Object.entries(data || {}));
+else Object.entries(data || {}).forEach(([k, v]) => (v === null ? visitors.online.delete(k) : visitors.online.set(k, v)));
+} else if (data === null) visitors.online.delete(parts[1]);
+else visitors.online.set(parts[1], data);
+}
+if (visitors.total === null) visitors.total = 0;
+}
+let source = null;
+let timer = 0;
+function stop() {
+if (source) source.close();
+source = null;
+clearInterval(timer);
+}
+function start() {
+if (source) return;
+source = new EventSource(url('live'));
+const onEvent = (e) => {
+try {
+const { path, data } = JSON.parse(e.data);
+apply(e.type, path, data);
+updateVisitors();
+} catch (error) {
+}
+};
+source.addEventListener('put', onEvent);
+source.addEventListener('patch', onEvent);
+source.addEventListener('cancel', stop);
+beat();
+timer = setInterval(() => {
+beat();
+updateVisitors();
+}, 30000);
+}
+document.addEventListener('visibilitychange', () => (document.visibilityState === 'visible' ? start() : stop()));
+if (document.visibilityState === 'visible') start();
+})();
 function slideshow(stage) {
 const first = stage && stage.querySelector('[data-menu-bg]');
 if (!first) return () => {};
@@ -496,6 +627,7 @@ pickBackground(stage);
 stage.querySelectorAll('.rings').forEach((svg) => svg.classList.add('is-drawn'));
 updateClocks();
 updateMotionToggles();
+updateVisitors();
 const r = opener.getBoundingClientRect();
 dialog.style.setProperty('--mx', `${Math.round(r.left + r.width / 2)}px`);
 dialog.style.setProperty('--my', `${Math.round(r.top + r.height / 2)}px`);
